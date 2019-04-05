@@ -10,9 +10,11 @@
  
 #include <opencv2/highgui.hpp>
 #include "opencv2/imgproc.hpp"
+#include "opencv2/tracking.hpp"
 #include <iostream>
 #include <iomanip>
 #include <chrono>
+#include <algorithm>
 #include <math.h>
 #include <unistd.h>
 #include <tensorflow/lite/kernels/register.h>
@@ -21,12 +23,12 @@
 #include <reading.h>
 #include <logger.h>
 
-#define IMAGE_SIZE 28
 
 using namespace cv;
 using namespace std;
 
 const vector<string> labels { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+float topn_prob=0.0;
 
 /**
  * Constructor for the random "sensor"
@@ -47,8 +49,11 @@ template<typename T>
 std::vector<int> GetTopNIndices(const T* data, int size, int n) {
     std::vector<int> topn;
     auto comp = [&](int i, int j) -> bool { return data[i] > data[j]; };
+    topn_prob=0.0;
     for (int i = 0; i < size; i++) {
 		//cout << "i=" << i << ", data[i]=" << data[i] << endl;
+	Logger::getLogger()->info("i=%d, data[i]=%f", i, data[i]);
+	topn_prob=std::max(topn_prob, (float) data[i]);
         topn.push_back(i);
         std::push_heap(topn.begin(), topn.end(), comp);
         if (topn.size() > n) {
@@ -169,7 +174,6 @@ void saveImage(Mat &image, string filename)
 int ImageClassifier::processImage(Mat &image)
 {
 	Mat image2;
-	Size size(IMAGE_SIZE,IMAGE_SIZE);
 
 	//image = imread(argv[1] , CV_LOAD_IMAGE_GRAYSCALE);
 
@@ -187,31 +191,51 @@ int ImageClassifier::processImage(Mat &image)
 
 	//imshow( "original image", image );
 	//waitKey(0);
-	
-	resize(image, image2, size, 0, 0, CV_INTER_LINEAR);
-	saveImage(image2, "image-2.jpg");
 
+	Mat gray;
+
+	cv::threshold( image, gray, 100, 255, cv::THRESH_BINARY );
+
+	/// Find contours   
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+	RNG rng(12345);
+	findContours( gray, contours, cv::noArray(), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+	/// Draw contours
+	gray = cv::Scalar::all(0);
+	cv::drawContours( gray, contours, -1, cv::Scalar::all(255));
+	saveImage(gray, "image-1.5.jpg");
+
+	//cout << "gray: gray.rows=" << gray.rows << ", gray.cols=" << gray.cols << ", area=" << gray.rows*gray.cols << endl;
+
+	Rect bounding_rect;
+	int largest_area=0;
+	int largest_contour_index=0;
+	Scalar color( 255,255,255);  // color of the contour in the
+	for( int i = 0; i< contours.size(); i++ )
+	{
+		//  Find the area of contour
+		double a=contourArea( contours[i],false); 
+		if(a>largest_area && a<gray.rows*gray.cols/2)
+		{
+			largest_area=a;
+			cout<<i<<" area  "<<a<<endl;
+			// Store the index of largest contour
+			largest_contour_index=i;               
+ 			// Find the bounding rectangle for biggest contour
+			bounding_rect=boundingRect(contours[i]);
+		}
+	}
+	
+	image2 = image(bounding_rect);
+	saveImage(image2, "image-2.jpg");
+	
 	bitwise_not(image2, image);
 	image2 = image;
 	saveImage(image, "image-3.jpg");
 
 	double thresh = threshold(image2, image, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	saveImage(image, "image-4.jpg");
-
-	Mat mThreshold;
-	threshold(image, mThreshold, 254, 255, CV_THRESH_BINARY_INV);
-	
-	Mat Points;
-	findNonZero(mThreshold, Points);
-	Rect Min_Rect = boundingRect(Points);
-
-	image2 = image(Min_Rect);
-	//cout << "bounding rect: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
-	image = image2;
-	rectangle(image, Min_Rect.tl(), Min_Rect.br(), Scalar(0,255,0), 0);
-	//imshow( "bounded image", image );
-	//waitKey(0);
-	saveImage(image, "image-5.jpg");
 
 	int rows = image.rows;
 	int cols = image.cols;
@@ -231,10 +255,12 @@ int ImageClassifier::processImage(Mat &image)
 		cols = 20;
 		rows = int(round(rows*factor));
 	}
-	resize(image, image2, Size(rows,cols), 0, 0, CV_INTER_LINEAR);
+	resize(image, image2, Size(cols,rows), 0, 0, CV_INTER_LINEAR);
 	//imshow( "20 x 20 image", image2 );
 	//waitKey(0);
 	//cout << "20 x 20 image: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
+	Logger::getLogger()->info("20 x 20 image: image2 is %d x %d", image2.rows, image2.cols);
+	saveImage(image2, "image-5.jpg");
 
 	// Initialize arguments for the filter
 	int top = (int) (ceil((28-cols)/2.0));
@@ -248,11 +274,12 @@ int ImageClassifier::processImage(Mat &image)
 	//cout << "padded image 28 x 28: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
 	saveImage(image, "image-6.jpg");
 
-	threshold(image, image2, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+	//threshold(image, image2, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	//cout << "padded image 28 x 28: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
-	image = image2;
+	//image = image2;
+	image2 = image;
 
-	saveImage(image2, "image-7.jpg");
+	//saveImage(image2, "image-7.jpg");
 	
 	//imshow( "padded image 28 x 28", image2);
 	//waitKey(0);
@@ -281,20 +308,16 @@ bool ImageClassifier::takeImage(Mat& mat)
 {
 	//mat = imread("digit-8.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
 	VideoCapture cap(0);
-	PRINT_FUNC;
 	if(!cap.isOpened())  // check if we succeeded
 	{
 		Logger::getLogger()->error("Camera 0 is not open");
         return false;
 	}
-	PRINT_FUNC;
 
 	cap >> mat; // get a new image from camera
-	PRINT_FUNC;
 
 	if(!mat.data)
 	  return false;
-	PRINT_FUNC;
 
 	saveImage(mat, "image-orig.jpg");
 
@@ -311,7 +334,6 @@ Reading	ImageClassifier::takeReading()
 	Mat image;
 	bool rv = takeImage(image);
 
-	PRINT_FUNC;
 	if(!rv) {
 	  Logger::getLogger()->error("Could not take image using camera");
 	  DatapointValue value((long) -1);
@@ -321,11 +343,9 @@ Reading	ImageClassifier::takeReading()
 	Mat image2;
 	cv::cvtColor(image, image2, CV_BGR2GRAY);
 
-	PRINT_FUNC;
 	long rv2 = processImage(image2);
-	Logger::getLogger()->info("I think digit is %d", rv2);
+	Logger::getLogger()->info("I think digit is %d, prob=%f", rv2, topn_prob);
 	
-	PRINT_FUNC;
 	DatapointValue value(rv2);
 	return Reading(m_asset_name, new Datapoint("digit", value));
 }
