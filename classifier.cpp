@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <chrono>
 #include <algorithm>
+#include <fstream>
 #include <math.h>
 #include <unistd.h>
 #include <tensorflow/lite/kernels/register.h>
@@ -28,6 +29,8 @@ using namespace cv;
 using namespace std;
 
 const vector<string> labels { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+
+int digit;
 float topn_prob=0.0;
 
 /**
@@ -52,7 +55,7 @@ std::vector<int> GetTopNIndices(const T* data, int size, int n) {
     topn_prob=0.0;
     for (int i = 0; i < size; i++) {
 		//cout << "i=" << i << ", data[i]=" << data[i] << endl;
-	Logger::getLogger()->info("i=%d, data[i]=%f", i, data[i]);
+	//Logger::getLogger()->info("i=%d, data[i]=%f", i, data[i]);
 	topn_prob=std::max(topn_prob, (float) data[i]);
         topn.push_back(i);
         std::push_heap(topn.begin(), topn.end(), comp);
@@ -86,7 +89,7 @@ std::vector<std::string> GetTopN(TfLiteTensor* output, int n) {
 
 int ImageClassifier::identifyDigit(Mat &mat)
 {
-    Logger::getLogger()->info("get_current_dir_name()=%s", get_current_dir_name());
+    //Logger::getLogger()->info("get_current_dir_name()=%s", get_current_dir_name());
 	string model_file("/home/pi/dev/FogLAMP/plugins/south/ImageClassifier/digit_recognition.tflite");
 	// Load model.
     auto model = tflite::FlatBufferModel::BuildFromFile(model_file.c_str());
@@ -132,7 +135,7 @@ int ImageClassifier::identifyDigit(Mat &mat)
 	const auto topn = GetTopN(output_tensor, 3);
 
 	//cout << "I think the digit is " << topn[0] << " or " << topn[1] << " or " << topn[2] << endl;
-	Logger::getLogger()->info("Recognized digit is %d or %d or %d", stoi(topn[0]), stoi(topn[1]), stoi(topn[2]));
+	//Logger::getLogger()->info("Recognized digit is %d or %d or %d", stoi(topn[0]), stoi(topn[1]), stoi(topn[2]));
 	
 	//interpreter->close();
 	
@@ -181,9 +184,12 @@ int ImageClassifier::processImage(Mat &image)
 	  Logger::getLogger()->error("Could not find image data") ;
 	  return -1;
 	}
+	ofstream myfile;
+  	myfile.open ("example.txt");
+	Mat src = image; // keep a copy of original image
 	saveImage(image, "image-1.jpg");
 
-	Logger::getLogger()->info("Input Matrix type is %s %d x %d", type2str(image.type()).c_str(), image.rows, image.cols);
+	//Logger::getLogger()->info("Input Matrix type is %s %d x %d", type2str(image.type()).c_str(), image.rows, image.cols);
 
 	//cout << "Input image : " << endl << image << endl;
 
@@ -199,7 +205,6 @@ int ImageClassifier::processImage(Mat &image)
 	/// Find contours   
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
-	RNG rng(12345);
 	findContours( gray, contours, cv::noArray(), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 	/// Draw contours
 	gray = cv::Scalar::all(0);
@@ -207,40 +212,39 @@ int ImageClassifier::processImage(Mat &image)
 	saveImage(gray, "image-1.5.jpg");
 
 	//cout << "gray: gray.rows=" << gray.rows << ", gray.cols=" << gray.cols << ", area=" << gray.rows*gray.cols << endl;
+	//Logger::getLogger()->info("gray: %d x %d, area=%d", gray.rows, gray.cols, gray.rows*gray.cols);
 
 	Rect bounding_rect;
-	int largest_area=0;
-	int largest_contour_index=0;
-	Scalar color( 255,255,255);  // color of the contour in the
+	//int largest_area=0;
+	//int largest_contour_index=0;
+	//Scalar color( 255,255,255);  // color of the contour in the
+	int num=1;
 	for( int i = 0; i< contours.size(); i++ )
 	{
 		//  Find the area of contour
-		double a=contourArea( contours[i],false); 
-		if(a>largest_area && a<gray.rows*gray.cols/2)
-		{
-			largest_area=a;
-			cout<<i<<" area  "<<a<<endl;
-			// Store the index of largest contour
-			largest_contour_index=i;               
- 			// Find the bounding rectangle for biggest contour
-			bounding_rect=boundingRect(contours[i]);
-		}
-	}
+	        double a=contourArea( contours[i],false);
+		if (a<gray.rows*gray.cols/200 || a>gray.rows*gray.cols/2) continue;
+		string name("image-" + to_string(num) + "-");
+		num++;
+		Logger::getLogger()->info("Contour area=%f (%d th fraction of original image size)", a, (int) (gray.rows*gray.cols/a));
+		bounding_rect=boundingRect(contours[i]);
+
+		image = src; // start with original image
 	
 	image2 = image(bounding_rect);
-	saveImage(image2, "image-2.jpg");
+	saveImage(image2, name+"2.jpg");
 	
 	bitwise_not(image2, image);
 	image2 = image;
-	saveImage(image, "image-3.jpg");
+	saveImage(image2, name+"3.jpg");
 
 	double thresh = threshold(image2, image, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	saveImage(image, "image-4.jpg");
+	saveImage(image2, name+"4.jpg");
 
 	int rows = image.rows;
 	int cols = image.cols;
 
-	//cout << "bounding rect: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
+	myfile << "bounding rect: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
 	
 	double factor;
 	if (rows > cols)
@@ -255,53 +259,60 @@ int ImageClassifier::processImage(Mat &image)
 		cols = 20;
 		rows = int(round(rows*factor));
 	}
+	myfile << "resize to rows=" << rows << ", cols=" << cols << ", factor=" << factor << endl;
+	if (rows==0 || cols==0) continue;
 	resize(image, image2, Size(cols,rows), 0, 0, CV_INTER_LINEAR);
 	//imshow( "20 x 20 image", image2 );
 	//waitKey(0);
-	//cout << "20 x 20 image: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
-	Logger::getLogger()->info("20 x 20 image: image2 is %d x %d", image2.rows, image2.cols);
-	saveImage(image2, "image-5.jpg");
+	//Logger::getLogger()->info("20 x 20 image: image2 is %d x %d", image2.rows, image2.cols);
+	saveImage(image2, name+"5.jpg");
 
 	// Initialize arguments for the filter
-	int top = (int) (ceil((28-cols)/2.0));
-	int bottom = (int) (floor((28-cols)/2.0));
-	int left = (int) (ceil((28-rows)/2.0));
-	int right = (int) (floor((28-rows)/2.0));
+	int top = (int) (ceil((28-rows)/2.0));
+	int bottom = (int) (floor((28-rows)/2.0));
+	int left = (int) (ceil((28-cols)/2.0));
+	int right = (int) (floor((28-cols)/2.0));
 
 	//cout << "20 x 20 image: top=" << top << ", bottom=" << bottom << ", left=" << left << ", right=" << right << endl;
+	//Logger::getLogger()->info("20 x 20 image: top=%d, bottom=%d, left=%d, right=%d", top, bottom, left, right);
 
 	copyMakeBorder( image2, image, top, bottom, left, right, BORDER_CONSTANT, Scalar());
-	//cout << "padded image 28 x 28: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
-	saveImage(image, "image-6.jpg");
+	myfile << "padded image 28 x 28: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
+	saveImage(image, name+"6.jpg");
 
 	//threshold(image, image2, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	//cout << "padded image 28 x 28: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
 	//image = image2;
 	image2 = image;
 
-	//saveImage(image2, "image-7.jpg");
+	saveImage(image2, name+"7.jpg");
 	
 	//imshow( "padded image 28 x 28", image2);
 	//waitKey(0);
 
-	//cout << "saved Image : " << endl << image2 << endl;
+	myfile << "saved Image : " << endl << image2 << endl << endl;
 
 	Mat image3;
 	image2.convertTo(image3, CV_32F, 1.0 / 255, 0); // normalize pixel values
 
 	//cout << "normalized matrix type is " << type2str(image3.type()) << "  " << image3.rows << " x " << image3.cols << endl;
 	
-	//cout << "normalized Image : " << endl << image3 << endl;
+	//myfile << "normalized Image : " << endl << image3 << endl << endl;
 
 	Mat flat_image = image3.reshape(1,1); // flat 1d, (channels, rows)
 
 	//cout << "flat_image matrix type is " << type2str(flat_image.type()) << "  " << flat_image.rows << " x " << flat_image.cols << endl;
 
-	//cout << "flat_image : " << endl << flat_image << endl;
+	//myfile << "flat_image : " << endl << flat_image << endl;
 	
 	//cout << "flat_image.rows=" << flat_image.rows << ", flat_image.cols=" << flat_image.cols << endl;
 
-	return (identifyDigit(flat_image));
+	digit = identifyDigit(flat_image);
+	Logger::getLogger()->info("digit=%d, topn_prob=%f", digit, topn_prob);
+	//if(topn_prob > 0.95) return digit;
+	}
+	myfile.close();
+	return digit;
 }
 
 bool ImageClassifier::takeImage(Mat& mat)
@@ -321,7 +332,7 @@ bool ImageClassifier::takeImage(Mat& mat)
 
 	saveImage(mat, "image-orig.jpg");
 
-	Logger::getLogger()->info("Captured image, type=%s   %d x %d", type2str(mat.type()).c_str(), mat.rows, mat.cols);
+	//Logger::getLogger()->info("Captured image, type=%s   %d x %d", type2str(mat.type()).c_str(), mat.rows, mat.cols);
 	
 	return true;
 }
@@ -343,9 +354,15 @@ Reading	ImageClassifier::takeReading()
 	Mat image2;
 	cv::cvtColor(image, image2, CV_BGR2GRAY);
 
-	long rv2 = processImage(image2);
-	Logger::getLogger()->info("I think digit is %d, prob=%f", rv2, topn_prob);
+	long digit = processImage(image2);
+	//Logger::getLogger()->info("I think digit is %d, prob=%f", rv2, topn_prob);
 	
-	DatapointValue value(rv2);
-	return Reading(m_asset_name, new Datapoint("digit", value));
+	vector<Datapoint *> vec;
+
+	DatapointValue dpv1(digit);
+	vec.push_back(new Datapoint("digit", dpv1));
+	DatapointValue dpv2(topn_prob);
+	vec.push_back(new Datapoint("probability", dpv2));
+
+	return Reading(m_asset_name, vec);
 }
