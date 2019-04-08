@@ -396,12 +396,13 @@ bool ImageClassifier::takeImage(Mat& mat)
 Reading	ImageClassifier::takeReading()
 {
 	Mat image;
+	vector<Datapoint *> vec;
+	
 	bool rv = takeImage(image);
 
 	if(!rv) {
 	  Logger::getLogger()->error("Could not take image using camera");
-	  DatapointValue value((long) -1);
-	  return Reading(m_asset_name, new Datapoint("digit", value));
+	  return Reading(m_asset_name, vec);
 	}
 
 	Mat image2;
@@ -409,8 +410,6 @@ Reading	ImageClassifier::takeReading()
 
 	long digit = processImage(image2);
 	//Logger::getLogger()->info("I think digit is %d, prob=%f", rv2, topn_prob);
-	
-	vector<Datapoint *> vec;
 
 	if (digit != -1)
 	{

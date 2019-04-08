@@ -16,6 +16,15 @@ On each reboot, camera driver has to be loaded into kernel before using this plu
 
 If USB camera is used, corresponding drivers must be loaded into kernel.
 
+Also OpenCV libraries are installed in /usr/local/lib, so in the shell where FogLAMP
+is started, before starting it, update the LD_LIBRARY_PATH:
+
+.. code-block:: console
+
+  $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+Later on, LD_LIBRARY_PATH would be updated in ${FOGLAMP_ROOT}/scripts/foglamp itself.
+
 
 Build
 ----
@@ -77,10 +86,7 @@ To build FogLAMP Image classifier South plugin:
 .. code-block:: console
 
   $ export TF_ROOT=/home/pi/tf/tensorflow    # path where tensorflow github repo is cloned
-  $ mkdir build
-  $ cd build
-  $ cmake ..
-  $ make
+  $ mkdir build; cd build; cmake -DFOGLAMP_INSTALL=$FOGLAMP_ROOT ..; make && make install
 
 - By default the FogLAMP develop package header files and libraries
   are expected to be located in /usr/include/foglamp and /usr/lib/foglamp

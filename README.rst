@@ -16,6 +16,15 @@ On each reboot, camera driver has to be loaded into kernel before using this plu
 
 If USB camera is used, corresponding drivers must be loaded into kernel.
 
+Also OpenCV libraries are installed in /usr/local/lib, so in the shell where FogLAMP
+is started, before starting it, update the LD_LIBRARY_PATH:
+
+.. code-block:: console
+
+  $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+Later on, LD_LIBRARY_PATH would be updated in ${FOGLAMP_ROOT}/scripts/foglamp itself.
+
 
 Build
 ----
