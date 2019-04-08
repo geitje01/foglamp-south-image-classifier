@@ -21,9 +21,14 @@ class ImageClassifier {
 		{
 			m_asset_name = assetName;
 		}
+	void	setModel(const std::string& model)
+		{
+			m_tflite_model = model;
+		}
 
 	private:
 		std::string	m_asset_name;
+		std::string	m_tflite_model;
 		int identifyDigit(cv::Mat &mat);
 		int processImage(cv::Mat &image);
 		bool takeImage(cv::Mat& mat);

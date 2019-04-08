@@ -21,10 +21,12 @@ using namespace std;
 #define CONFIG	"{\"plugin\" : { \"description\" : \"" PLUGIN_NAME " data generation plugin\", " \
 			"\"type\" : \"string\", \"default\" : \"" PLUGIN_NAME "\", \"readonly\" : \"true\"}, " \
 		"\"asset\" : { \"description\" : \"Asset name\", " \
-			"\"type\" : \"string\", \"default\" : \"" PLUGIN_NAME "\", \"displayName\": \"Asset Name\"  } } "
+			"\"type\" : \"string\", \"default\" : \"" PLUGIN_NAME "\", \"displayName\": \"Asset Name\"  }, " \
+		"\"model\" : { \"description\" : \"Tensorflow lite model file path\", " \
+			"\"type\" : \"string\", \"default\" : \"\", \"displayName\": \"Tensorflow lite model file path\"  } } "
 		  
 /**
- * The Random plugin interface
+ * The Image classifier plugin interface
  */
 extern "C" {
 
@@ -63,7 +65,24 @@ ImageClassifier *classifier = new ImageClassifier();
 	{
 		classifier->setAssetName(PLUGIN_NAME);
 	}
-
+	
+	if (config->itemExists("model"))
+	{
+		if (access(config->getValue("model").c_str(), F_OK|R_OK) != 0)
+		{
+			Logger::getLogger()->error("Valid TFlite model path is mandatory");
+			delete classifier;
+			classifier = NULL;
+		}
+		classifier->setModel(config->getValue("model"));
+	}
+	else
+	{
+		Logger::getLogger()->error("Valid Tensorflow lite model path is mandatory");
+		delete classifier;
+		classifier = NULL;
+	}
+	
 	return (PLUGIN_HANDLE)classifier;
 }
 
@@ -95,6 +114,10 @@ ImageClassifier		*classifier = (ImageClassifier *)*handle;
 	if (config.itemExists("asset"))
 	{
 		classifier->setAssetName(config.getValue("asset"));
+	}
+	if (config->itemExists("model"))
+	{
+		classifier->setModel(config->getValue("model"));
 	}
 }
 

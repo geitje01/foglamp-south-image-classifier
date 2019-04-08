@@ -34,7 +34,7 @@ int digit;
 float topn_prob=0.0;
 
 /**
- * Constructor for the random "sensor"
+ * Constructor for ImageClassifer class
  */
 ImageClassifier::ImageClassifier()
 {
@@ -42,21 +42,23 @@ ImageClassifier::ImageClassifier()
 }
 
 /**
- * Destructor for the random "sensor"
+ * Destructor for ImageClassifer class
  */
 ImageClassifier::~ImageClassifier()
 {
 }
 
+/**
+ * Get top 'n' indices in output tensor that input tensor could possibly be representing
+ */
 template<typename T>
 std::vector<int> GetTopNIndices(const T* data, int size, int n) {
     std::vector<int> topn;
     auto comp = [&](int i, int j) -> bool { return data[i] > data[j]; };
     topn_prob=0.0;
     for (int i = 0; i < size; i++) {
-		//cout << "i=" << i << ", data[i]=" << data[i] << endl;
-	//Logger::getLogger()->info("i=%d, data[i]=%f", i, data[i]);
-	topn_prob=std::max(topn_prob, (float) data[i]);
+		//Logger::getLogger()->info("i=%d, data[i]=%f", i, data[i]);
+		topn_prob=std::max(topn_prob, (float) data[i]);
         topn.push_back(i);
         std::push_heap(topn.begin(), topn.end(), comp);
         if (topn.size() > n) {
@@ -68,6 +70,9 @@ std::vector<int> GetTopNIndices(const T* data, int size, int n) {
     return topn;
 }
 
+/**
+ * Get top 'n' digits the input tensor could possibly be representing
+ */
 std::vector<std::string> GetTopN(TfLiteTensor* output, int n) {
     std::vector<int> topn;
     switch (output->type) {
@@ -87,10 +92,14 @@ std::vector<std::string> GetTopN(TfLiteTensor* output, int n) {
     return topn_labels;
 }
 
+/**
+ * Pass image information into tensorflow model and find the digit it maps to
+ */
 int ImageClassifier::identifyDigit(Mat &mat)
 {
     //Logger::getLogger()->info("get_current_dir_name()=%s", get_current_dir_name());
-	string model_file("/home/pi/dev/FogLAMP/plugins/south/ImageClassifier/digit_recognition.tflite");
+	//string model_file("/home/pi/dev/FogLAMP/plugins/south/ImageClassifier/digit_recognition.tflite");
+	string model_file(m_tflite_model);
 	// Load model.
     auto model = tflite::FlatBufferModel::BuildFromFile(model_file.c_str());
     if (!model) {
@@ -142,6 +151,9 @@ int ImageClassifier::identifyDigit(Mat &mat)
 	return stoi(topn[0]);
 }
 
+/**
+ * Get string representation of type of cv::Mat - for debug purpose only
+ */
 string type2str(int type) {
   string r;
 
@@ -165,6 +177,9 @@ string type2str(int type) {
   return r;
 }
 
+/**
+ * Save image as a jpeg file - for debug purpose only
+ */
 void saveImage(Mat &image, string filename)
 {
 	vector<int> compression_params;
@@ -174,9 +189,13 @@ void saveImage(Mat &image, string filename)
 	imwrite(filename, image, compression_params);
 }
 
+/**
+ * Process image so that it can be fed into tensorflow model
+ */
 int ImageClassifier::processImage(Mat &image)
 {
 	Mat image2;
+	Mat kernel = (Mat_<uchar>(3,3) << 0,1,0,1,1,1,0,1,0);
 
 	//image = imread(argv[1] , CV_LOAD_IMAGE_GRAYSCALE);
 
@@ -184,8 +203,8 @@ int ImageClassifier::processImage(Mat &image)
 	  Logger::getLogger()->error("Could not find image data") ;
 	  return -1;
 	}
-	ofstream myfile;
-  	myfile.open ("example.txt");
+	ofstream logfile;
+  	logfile.open ("logs.txt");
 	Mat src = image; // keep a copy of original image
 	saveImage(image, "image-1.jpg");
 
@@ -198,123 +217,156 @@ int ImageClassifier::processImage(Mat &image)
 	//imshow( "original image", image );
 	//waitKey(0);
 
-	Mat gray;
-
-	cv::threshold( image, gray, 100, 255, cv::THRESH_BINARY );
+	Mat gray; // = image;
+	GaussianBlur(image, gray, Size(5,5), 0);
 
 	/// Find contours   
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
-	findContours( gray, contours, cv::noArray(), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
-	/// Draw contours
-	gray = cv::Scalar::all(0);
-	cv::drawContours( gray, contours, -1, cv::Scalar::all(255));
-	saveImage(gray, "image-1.5.jpg");
+	Mat canny_output;
+	
+	// detect edges using canny
+	Canny( gray, canny_output, 100, 150, 3 );
+    dilate(canny_output, canny_output, kernel);
+    findContours( canny_output, contours, cv::noArray(), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+	
+	saveImage(canny_output, "image-1.5.jpg");
 
 	//cout << "gray: gray.rows=" << gray.rows << ", gray.cols=" << gray.cols << ", area=" << gray.rows*gray.cols << endl;
 	//Logger::getLogger()->info("gray: %d x %d, area=%d", gray.rows, gray.cols, gray.rows*gray.cols);
 
 	Rect bounding_rect;
-	//int largest_area=0;
-	//int largest_contour_index=0;
-	//Scalar color( 255,255,255);  // color of the contour in the
+	int largest_area=0;
+	int largest_contour_index=0;
+	Scalar color( 255,255,255);  // color of the contour in the
 	int num=1;
 	for( int i = 0; i< contours.size(); i++ )
-	{
-		//  Find the area of contour
-	        double a=contourArea( contours[i],false);
-		if (a<gray.rows*gray.cols/200 || a>gray.rows*gray.cols/2) continue;
+    {
+        //  Find the area of contour
+        double a=contourArea( contours[i],false);
+		if (a<300 || a>gray.rows*gray.cols/2) continue;
+		//cout << "Contour area=" << a << ", contours[i].size()=" << contours[i].size() << endl;
+		
+		bounding_rect = boundingRect(contours[i]);
+		float ar = (float) bounding_rect.width / bounding_rect.height;
+		if(ar < 1.0/4.0 || ar > 4.0)
+		{
+			//cout << "Skipping contour because AR=" << ar << ", bounding_rect.width=" << bounding_rect.width << ", bounding_rect.height=" << bounding_rect.height << endl;
+			continue; // skip if aspect ratio is more than 4
+		}
+
+		
 		string name("image-" + to_string(num) + "-");
 		num++;
-		Logger::getLogger()->info("Contour area=%f (%d th fraction of original image size)", a, (int) (gray.rows*gray.cols/a));
-		bounding_rect=boundingRect(contours[i]);
+		
+		RotatedRect rect = minAreaRect( Mat(contours[i]) );
+		
+        Mat M, rotated, cropped;
+        // get angle and size from the bounding box
+        float angle = rect.angle;
+        Size rect_size = rect.size;
+		//cout << "angle=" << angle << ", rect_size=" << rect_size << endl;
+        
+        if (rect.angle < -45.0) {
+            angle += 90.0;
+            swap(rect_size.width, rect_size.height);
+        }
+        // get the rotation matrix
+        M = getRotationMatrix2D(rect.center, angle, 1.0);
+        // perform the affine transformation
+        warpAffine(gray, rotated, M, src.size(), INTER_CUBIC);
+        // crop the resulting image
+        getRectSubPix(rotated, rect_size, rect.center, cropped);
+		saveImage(cropped, name+"2.jpg");
 
-		image = src; // start with original image
-	
-	image2 = image(bounding_rect);
-	saveImage(image2, name+"2.jpg");
-	
-	bitwise_not(image2, image);
-	image2 = image;
-	saveImage(image2, name+"3.jpg");
+		bitwise_not(cropped, image);
 
-	double thresh = threshold(image2, image, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	saveImage(image2, name+"4.jpg");
+		threshold(image, image2, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+		saveImage(image2, name+"3.jpg");
 
-	int rows = image.rows;
-	int cols = image.cols;
+		image = image2;
 
-	myfile << "bounding rect: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
-	
-	double factor;
-	if (rows > cols)
-	{
-		factor = 20.0/rows;
-		rows = 20;
-		cols = int(round(cols*factor));
+		int rows = image.rows;
+		int cols = image.cols;
+
+		logfile << "bounding rect: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
+		
+		double factor;
+		if (rows > cols)
+		{
+			factor = 20.0/rows;
+			rows = 20;
+			cols = int(round(cols*factor));
+		}
+		else
+		{
+			factor = 20.0/cols;
+			cols = 20;
+			rows = int(round(rows*factor));
+		}
+		logfile << "resize to rows=" << rows << ", cols=" << cols << ", factor=" << factor << endl;
+		if (rows==0 || cols==0) continue;
+		resize(image, image2, Size(cols,rows), 0, 0, INTER_CUBIC);
+		//imshow( "20 x 20 image", image2 );
+		//waitKey(0);
+		//Logger::getLogger()->info("20 x 20 image: image2 is %d x %d", image2.rows, image2.cols);
+		saveImage(image2, name+"5.jpg");
+
+		// Initialize arguments for the filter
+		int top = (int) (ceil((28-rows)/2.0));
+		int bottom = (int) (floor((28-rows)/2.0));
+		int left = (int) (ceil((28-cols)/2.0));
+		int right = (int) (floor((28-cols)/2.0));
+
+		//cout << "20 x 20 image: top=" << top << ", bottom=" << bottom << ", left=" << left << ", right=" << right << endl;
+		//Logger::getLogger()->info("20 x 20 image: top=%d, bottom=%d, left=%d, right=%d", top, bottom, left, right);
+
+		copyMakeBorder( image2, image, top, bottom, left, right, BORDER_CONSTANT, Scalar());
+		logfile << "padded image 28 x 28: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
+		saveImage(image, name+"6.jpg");
+
+		//threshold(image, image2, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+		//cout << "padded image 28 x 28: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
+		//image = image2;
+		image2 = image;
+
+		saveImage(image2, name+"7.jpg");
+		
+		//imshow( "padded image 28 x 28", image2);
+		//waitKey(0);
+
+		logfile << "saved Image : " << endl << image2 << endl << endl;
+
+		Mat image3;
+		image2.convertTo(image3, CV_32F, 1.0 / 255, 0); // normalize pixel values
+
+		//cout << "normalized matrix type is " << type2str(image3.type()) << "  " << image3.rows << " x " << image3.cols << endl;
+		
+		//logfile << "normalized Image : " << endl << image3 << endl << endl;
+
+		Mat flat_image = image3.reshape(1,1); // flat 1d, (channels, rows)
+
+		//cout << "flat_image matrix type is " << type2str(flat_image.type()) << "  " << flat_image.rows << " x " << flat_image.cols << endl;
+
+		//logfile << "flat_image : " << endl << flat_image << endl;
+		
+		//cout << "flat_image.rows=" << flat_image.rows << ", flat_image.cols=" << flat_image.cols << endl;
+
+		digit = identifyDigit(flat_image);
+		Logger::getLogger()->info("digit=%d, topn_prob=%f", digit, topn_prob);
+		if(topn_prob > 0.80)
+		{
+			logfile.close();
+			return digit;
+		}
 	}
-	else
-	{
-		factor = 20.0/cols;
-		cols = 20;
-		rows = int(round(rows*factor));
-	}
-	myfile << "resize to rows=" << rows << ", cols=" << cols << ", factor=" << factor << endl;
-	if (rows==0 || cols==0) continue;
-	resize(image, image2, Size(cols,rows), 0, 0, CV_INTER_LINEAR);
-	//imshow( "20 x 20 image", image2 );
-	//waitKey(0);
-	//Logger::getLogger()->info("20 x 20 image: image2 is %d x %d", image2.rows, image2.cols);
-	saveImage(image2, name+"5.jpg");
-
-	// Initialize arguments for the filter
-	int top = (int) (ceil((28-rows)/2.0));
-	int bottom = (int) (floor((28-rows)/2.0));
-	int left = (int) (ceil((28-cols)/2.0));
-	int right = (int) (floor((28-cols)/2.0));
-
-	//cout << "20 x 20 image: top=" << top << ", bottom=" << bottom << ", left=" << left << ", right=" << right << endl;
-	//Logger::getLogger()->info("20 x 20 image: top=%d, bottom=%d, left=%d, right=%d", top, bottom, left, right);
-
-	copyMakeBorder( image2, image, top, bottom, left, right, BORDER_CONSTANT, Scalar());
-	myfile << "padded image 28 x 28: image.rows=" << image.rows << ", image.cols=" << image.cols << endl;
-	saveImage(image, name+"6.jpg");
-
-	//threshold(image, image2, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-	//cout << "padded image 28 x 28: image2.rows=" << image2.rows << ", image2.cols=" << image2.cols << endl;
-	//image = image2;
-	image2 = image;
-
-	saveImage(image2, name+"7.jpg");
-	
-	//imshow( "padded image 28 x 28", image2);
-	//waitKey(0);
-
-	myfile << "saved Image : " << endl << image2 << endl << endl;
-
-	Mat image3;
-	image2.convertTo(image3, CV_32F, 1.0 / 255, 0); // normalize pixel values
-
-	//cout << "normalized matrix type is " << type2str(image3.type()) << "  " << image3.rows << " x " << image3.cols << endl;
-	
-	//myfile << "normalized Image : " << endl << image3 << endl << endl;
-
-	Mat flat_image = image3.reshape(1,1); // flat 1d, (channels, rows)
-
-	//cout << "flat_image matrix type is " << type2str(flat_image.type()) << "  " << flat_image.rows << " x " << flat_image.cols << endl;
-
-	//myfile << "flat_image : " << endl << flat_image << endl;
-	
-	//cout << "flat_image.rows=" << flat_image.rows << ", flat_image.cols=" << flat_image.cols << endl;
-
-	digit = identifyDigit(flat_image);
-	Logger::getLogger()->info("digit=%d, topn_prob=%f", digit, topn_prob);
-	//if(topn_prob > 0.95) return digit;
-	}
-	myfile.close();
+	logfile.close();
 	return digit;
 }
 
+/**
+ * Take image from camera 0
+ */
 bool ImageClassifier::takeImage(Mat& mat)
 {
 	//mat = imread("digit-8.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
@@ -332,13 +384,13 @@ bool ImageClassifier::takeImage(Mat& mat)
 
 	saveImage(mat, "image-orig.jpg");
 
-	//Logger::getLogger()->info("Captured image, type=%s   %d x %d", type2str(mat.type()).c_str(), mat.rows, mat.cols);
+	Logger::getLogger()->info("Captured image, type=%s   %d x %d", type2str(mat.type()).c_str(), mat.rows, mat.cols);
 	
 	return true;
 }
 
 /**
- * Take a reading from the random "sensor"
+ * Generate a reading
  */
 Reading	ImageClassifier::takeReading()
 {
@@ -361,7 +413,9 @@ Reading	ImageClassifier::takeReading()
 
 	DatapointValue dpv1(digit);
 	vec.push_back(new Datapoint("digit", dpv1));
-	DatapointValue dpv2(topn_prob);
+
+	float value = (int)(topn_prob * 100 + 0.5); // round topn_prob
+	DatapointValue dpv2((double)value / 100);
 	vec.push_back(new Datapoint("probability", dpv2));
 
 	return Reading(m_asset_name, vec);

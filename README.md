@@ -1,1 +1,0 @@
-# foglamp-south-image-classifier

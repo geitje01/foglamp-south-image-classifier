@@ -1,8 +1,8 @@
-FogLAMP "random" C++ South plugin
+FogLAMP "Image classifier" South plugin
 
 Build
 ----
-To build FogLAMP Random C++ South plugin:
+To build FogLAMP Image classifier South plugin:
 
 .. code-block:: console
 
@@ -24,7 +24,7 @@ this default behaviour:
 - **FOGLAMP_SRC** sets the path of a FogLAMP source tree
 - **FOGLAMP_INCLUDE** sets the path to FogLAMP header files
 - **FOGLAMP_LIB sets** the path to FogLAMP libraries
-- **FOGLAMP_INSTALL** sets the installation path of Random plugin
+- **FOGLAMP_INSTALL** sets the installation path of Image classifier plugin
 
 NOTE:
  - The **FOGLAMP_INCLUDE** option should point to a location where all the FogLAMP 
@@ -62,10 +62,10 @@ Examples:
   $ cmake -DFOGLAMP_INSTALL=/usr/local/foglamp ..
 
 ******************************
-Packaging for 'random' south
+Packaging for 'Image classifier' south
 ******************************
 
-This repo contains the scripts used to create a foglamp-south-random Debian package.
+This repo contains the scripts used to create a foglamp-south-image-classifier Debian package.
 
 The make_deb script
 ===================
@@ -76,7 +76,7 @@ Run the make_deb command:
 
   $ ./make_deb help
   make_deb [help|clean|cleanall]
-  This script is used to create the Debian package of FoglAMP C++ 'random' south plugin
+  This script is used to create the Debian package of FoglAMP C++ 'Image classifier' south plugin
   Arguments:
    help     - Display this help text
    clean    - Remove all the old versions saved in format .XXXX
@@ -91,15 +91,15 @@ Finally, run the ``make_deb`` command:
 .. code-block:: console
 
    $ ./make_deb
-   The package root directory is   : /home/ubuntu/source/foglamp-south-random
+   The package root directory is   : /home/ubuntu/source/foglamp-south-image-classifier
    The FogLAMP required version    : >=1.4
-   The package will be built in    : /home/ubuntu/source/foglamp-south-random/packages/build
+   The package will be built in    : /home/ubuntu/source/foglamp-south-image-classifier/packages/build
    The architecture is set as      : x86_64
-   The package name is             : foglamp-south-random-1.0.0-x86_64
+   The package name is             : foglamp-south-image-classifier-1.0.0-x86_64
 
    Populating the package and updating version file...Done.
    Building the new package...
-   dpkg-deb: building package 'foglamp-south-modbusc' in 'foglamp-south-random-1.0.0-x86_64.deb'.
+   dpkg-deb: building package 'foglamp-south-modbusc' in 'foglamp-south-image-classifier-1.0.0-x86_64.deb'.
    Building Complete.
    $
 
