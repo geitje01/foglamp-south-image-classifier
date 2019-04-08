@@ -1,5 +1,22 @@
 FogLAMP "Image classifier" South plugin
 
+Before using this plugin:
+
+RPi camera should be enabled:
+
+.. code-block:: console
+
+  $ sudo raspi-config   # Enable "RPi Camera" in "Interfacing options" -> Camera
+
+On each reboot, camera driver has to be loaded into kernel before using this plugin:
+
+.. code-block:: console
+
+  $ sudo modprobe bcm2835-v4l2
+
+If USB camera is used, corresponding drivers must be loaded into kernel.
+
+
 Build
 ----
 
