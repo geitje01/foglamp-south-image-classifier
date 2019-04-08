@@ -12,7 +12,7 @@ project(ImageClassifier)
 # If no -D options are given and FOGLAMP_ROOT environment variable is set
 # then FogLAMP libraries and header files are pulled from FOGLAMP_ROOT path.
 
-set(TF_ROOT "/home/pi/tf/tensorflow")
+set(TF_ROOT $ENV{TF_ROOT})
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O3")
 

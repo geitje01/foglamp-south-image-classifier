@@ -420,3 +420,4 @@ Reading	ImageClassifier::takeReading()
 
 	return Reading(m_asset_name, vec);
 }
+

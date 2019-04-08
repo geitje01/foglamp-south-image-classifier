@@ -5,7 +5,7 @@
  *
  * Released under the Apache 2.0 Licence
  *
- * Author: Massimiliano Pinto
+ * Author: Amandeep Singh Arora
  */
 #include <classifier.h>
 #include <plugin_api.h>
@@ -14,6 +14,7 @@
 #include <plugin_exception.h>
 #include <config_category.h>
 #include <version.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -115,9 +116,9 @@ ImageClassifier		*classifier = (ImageClassifier *)*handle;
 	{
 		classifier->setAssetName(config.getValue("asset"));
 	}
-	if (config->itemExists("model"))
+	if (config.itemExists("model"))
 	{
-		classifier->setModel(config->getValue("model"));
+		classifier->setModel(config.getValue("model"));
 	}
 }
 
