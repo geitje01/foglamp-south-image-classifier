@@ -6,7 +6,14 @@ Build
 Building of this plugin is supported only on Raspberry Pi.
 
 Building this plugin needs building of OpenCV and Tensorflow lite libraries and
-that takes lot of space. It is recommended to use atleast 16 GB SD card.
+that takes lot of space & time. It is recommended to use atleast 16 GB SD card.
+
+For quick start, the downloaded, configured and compiled packages are available
+for download directly from google drive at link given below. Hopefully they can
+be used to speed-up the setup. But it depends on Raspbian release version, version
+of various apt packages & system libraries, update status of OS, RPi version, etc.
+So this quick start guide is made available on best effort basis only. If it doesn't
+work out, the complete process might have to be followed as listed in README.rst.
 
 Steps to compile & install OpenCV for RPi:
 
@@ -21,8 +28,8 @@ Steps to compile & install OpenCV for RPi:
   
   $ sudo pip3 install numpy
   
-  # Download tf.tar.gz from https://drive.google.com/file/d/1ailG5blf6_PRKw55klMSrUd6PMwkvM4j/view
   $ cd
+  # Download tf.tar.gz from https://drive.google.com/file/d/1ailG5blf6_PRKw55klMSrUd6PMwkvM4j/view
   $ tar xf tf.tar.gz
   
   $ sudo sed -i 's/CONF_SWAPSIZE=100/CONF_SWAPSIZE=1024/g' /etc/dphys-swapfile
