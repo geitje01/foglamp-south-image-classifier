@@ -24,7 +24,7 @@ using namespace std;
 		"\"asset\" : { \"description\" : \"Asset name\", " \
 			"\"type\" : \"string\", \"default\" : \"" PLUGIN_NAME "\", \"displayName\": \"Asset Name\"  }, " \
 		"\"model\" : { \"description\" : \"Tensorflow lite model file path\", " \
-			"\"type\" : \"string\", \"default\" : \"\", \"displayName\": \"Tensorflow lite model file path\"  } } "
+			"\"type\" : \"string\", \"default\" : \"/home/pi/dev/FogLAMP/plugins/south/ImageClassifier/digit_recognition.tflite\", \"displayName\": \"Tensorflow lite model file path\"  } } "
 		  
 /**
  * The Image classifier plugin interface

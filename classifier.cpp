@@ -252,9 +252,8 @@ int ImageClassifier::processImage(Mat &image)
 		if(ar < 1.0/4.0 || ar > 4.0)
 		{
 			//cout << "Skipping contour because AR=" << ar << ", bounding_rect.width=" << bounding_rect.width << ", bounding_rect.height=" << bounding_rect.height << endl;
-			continue; // skip if aspect ratio is more than 4
+			continue; // skip if aspect ratio is more than 4 or less than 1/4
 		}
-
 		
 		string name("image-" + to_string(num) + "-");
 		num++;
@@ -354,11 +353,13 @@ int ImageClassifier::processImage(Mat &image)
 
 		digit = identifyDigit(flat_image);
 		Logger::getLogger()->info("digit=%d, topn_prob=%f", digit, topn_prob);
-		if(topn_prob > 0.80)
+		if(topn_prob > 0.70)
 		{
 			logfile.close();
 			return digit;
 		}
+		else
+			digit = -1;
 	}
 	logfile.close();
 	return digit;
@@ -411,12 +412,15 @@ Reading	ImageClassifier::takeReading()
 	
 	vector<Datapoint *> vec;
 
-	DatapointValue dpv1(digit);
-	vec.push_back(new Datapoint("digit", dpv1));
+	if (digit != -1)
+	{
+		DatapointValue dpv1(digit);
+		vec.push_back(new Datapoint("digit", dpv1));
 
-	float value = (int)(topn_prob * 100 + 0.5); // round topn_prob
-	DatapointValue dpv2((double)value / 100);
-	vec.push_back(new Datapoint("probability", dpv2));
+		float value = (int)(topn_prob * 100 + 0.5); // round topn_prob
+		DatapointValue dpv2((double)value / 100);
+		vec.push_back(new Datapoint("probability", dpv2));
+	}
 
 	return Reading(m_asset_name, vec);
 }
