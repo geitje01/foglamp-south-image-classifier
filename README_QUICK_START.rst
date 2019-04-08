@@ -21,14 +21,9 @@ Steps to compile & install OpenCV for RPi:
   
   $ sudo pip3 install numpy
   
-  $ mkdir ~/tf
-  $ cd ~/tf
-  
-  $ wget -O opencv.zip https://github.com/opencv/opencv/archive/3.4.5.zip
-  $ wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/3.4.5.zip
-  $ unzip opencv.zip
-  $ unzip opencv_contrib.zip
-  $ rm opencv.zip opencv_contrib.zip
+  # Download tf.tar.gz from https://drive.google.com/file/d/1ailG5blf6_PRKw55klMSrUd6PMwkvM4j/view
+  $ cd
+  $ tar xf tf.tar.gz
   
   $ sudo sed -i 's/CONF_SWAPSIZE=100/CONF_SWAPSIZE=1024/g' /etc/dphys-swapfile
   $ sudo /etc/init.d/dphys-swapfile stop
@@ -37,7 +32,6 @@ Steps to compile & install OpenCV for RPi:
   $ cd ~/tf/opencv-3.4.5/
   $ mkdir -p build
   $ cd build
-  $ cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local -D INSTALL_PYTHON_EXAMPLES=OFF -D OPENCV_EXTRA_MODULES_PATH=~/tf/opencv_contrib-3.4.5/modules -D BUILD_EXAMPLES=OFF -D BUILD_opencv_xfeatures2d=OFF ..
   $ make -j4
   $ sudo make install
 
@@ -50,11 +44,7 @@ Tensorflow lite header files and static library are also required:
 
 .. code-block:: console
 
-  $ mkdir -p ~/tf
-  $ cd ~/tf
-  $ git clone https://github.com/tensorflow/tensorflow.git
-  $ cd tensorflow
-  $ ./tensorflow/lite/tools/make/download_dependencies.sh
+  $ cd ~/tf/tensorflow
   $ ./tensorflow/lite/tools/make/build_rpi_lib.sh
 
 
