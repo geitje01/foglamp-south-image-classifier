@@ -38,6 +38,7 @@ set(NEEDED_FOGLAMP_LIBS common-lib)
 
 # Find source files
 file(GLOB SOURCES *.cpp)
+file(GLOB MODELS models/*.tflite)
 
 # Find FogLAMP includes and libs, by including FindFogLAMP.cmak file
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -88,5 +89,5 @@ set(FOGLAMP_INSTALL "" CACHE INTERNAL "")
 if (FOGLAMP_INSTALL)
 	message(STATUS "Installing ${PROJECT_NAME} in ${FOGLAMP_INSTALL}/plugins/${PLUGIN_TYPE}/${PROJECT_NAME}")
 	install(TARGETS ${PROJECT_NAME} DESTINATION ${FOGLAMP_INSTALL}/plugins/${PLUGIN_TYPE}/${PROJECT_NAME})
-	install(FILES models/digit_recognition.tflite DESTINATION ${FOGLAMP_INSTALL}/plugins/${PLUGIN_TYPE}/${PROJECT_NAME})
+	install(FILES ${MODELS} DESTINATION ${FOGLAMP_INSTALL}/plugins/${PLUGIN_TYPE}/${PROJECT_NAME})
 endif()
