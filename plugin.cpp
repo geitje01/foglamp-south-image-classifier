@@ -18,14 +18,50 @@
 
 using namespace std;
 
+#define TO_STRING(...) DEFER(TO_STRING_)(__VA_ARGS__)
+#define DEFER(x) x
+#define TO_STRING_(...) #__VA_ARGS__
+#define QUOTE(...) TO_STRING(__VA_ARGS__)
+
 #define PLUGIN_NAME "ImageClassifier"
-#define CONFIG	"{\"plugin\" : { \"description\" : \"" PLUGIN_NAME " data generation plugin\", " \
-			"\"type\" : \"string\", \"default\" : \"" PLUGIN_NAME "\", \"readonly\" : \"true\"}, " \
-		"\"asset\" : { \"description\" : \"Asset name\", " \
-			"\"type\" : \"string\", \"default\" : \"" PLUGIN_NAME "\", \"displayName\": \"Asset Name\"  }, " \
-		"\"model\" : { \"description\" : \"Tensorflow lite model file path\", " \
-			"\"type\" : \"string\", \"default\" : \"/home/pi/dev/FogLAMP/plugins/south/ImageClassifier/digit_recognition.tflite\", \"displayName\": \"Tensorflow lite model file path\"  } } "
-		  
+
+const char *def_cfg = QUOTE(
+	{
+		"plugin" : 
+		{
+			"description" : "ImageClassifier data generation plugin", 
+			"type" : "string",
+			"default" : "ImageClassifier", 
+			"readonly" : "true"
+		},
+		"asset" : 
+		{
+			"description" : "Asset name",
+			"type" : "string",
+			"default" : "ImageClassifier",
+			"displayName": "Asset Name",
+			"order" : "1"
+		},
+		"model" :
+		{
+			"description" : "Tensorflow lite model file path",
+			"type" : "string",
+			"default" : "/home/pi/dev/FogLAMP/plugins/south/ImageClassifier/digit_recognition.tflite",
+			"displayName": "Tensorflow lite model file path",
+			"order" : "2"
+		},
+		"minAccuracy" :
+		{
+			"description" : "Minimum accuracy percentage threshold to be met by TF model output",
+			"type" : "float",
+			"default" : "80.0",
+			"displayName": "Minimum accuracy threshold",
+			"order" : "3"
+		}
+	}
+);
+
+
 /**
  * The Image classifier plugin interface
  */
@@ -40,7 +76,7 @@ static PLUGIN_INFORMATION info = {
 	0,    			  // Flags
 	PLUGIN_TYPE_SOUTH,        // Type
 	"1.0.0",                  // Interface version
-	CONFIG                    // Default configuration
+	def_cfg                   // Default configuration
 };
 
 /**
@@ -65,6 +101,15 @@ ImageClassifier *classifier = new ImageClassifier();
 	else
 	{
 		classifier->setAssetName(PLUGIN_NAME);
+	}
+
+	if (config->itemExists("minAccuracy"))
+	{
+		classifier->setMinAccuracy(stof(config->getValue("minAccuracy")));
+	}
+	else
+	{
+		classifier->setMinAccuracy(80.5);
 	}
 	
 	if (config->itemExists("model"))

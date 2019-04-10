@@ -17,20 +17,16 @@ class ImageClassifier {
 		ImageClassifier();
 		~ImageClassifier();
 		Reading		takeReading();
-	void	setAssetName(const std::string& assetName)
-		{
-			m_asset_name = assetName;
-		}
-	void	setModel(const std::string& model)
-		{
-			m_tflite_model = model;
-		}
+	void	setAssetName(const std::string& assetName) { m_asset_name = assetName; }
+	void	setModel(const std::string& model) { m_tflite_model = model; }
+	void	setMinAccuracy(const float& acc) { m_min_accuracy = acc; }
 
 	private:
 		std::string	m_asset_name;
 		std::string	m_tflite_model;
-		int identifyDigit(cv::Mat &mat);
-		int processImage(cv::Mat &image);
-		bool takeImage(cv::Mat& mat);
+		float		m_min_accuracy;
+		int	identifyDigit(cv::Mat &mat);
+		int	processImage(cv::Mat &image);
+		bool	takeImage(cv::Mat& mat);
 };
 #endif

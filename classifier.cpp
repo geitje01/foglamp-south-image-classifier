@@ -93,7 +93,11 @@ std::vector<std::string> GetTopN(TfLiteTensor* output, int n)
 	std::vector<std::string> topn_labels(topn.size());
 	for (int i = 0; i < topn.size(); i++)
 	{
-		if (topn[i] < labels.size()) topn_labels[i] = labels[topn[i]];
+		if (topn[i] < labels.size()) 
+		{
+			topn_labels[i] = labels[topn[i]];
+			//Logger::getLogger()->debug("i=%d, prob[i]=%f", topn[i], output->data.f[topn[i]]);
+		}
 	}
 	return topn_labels;
 }
@@ -147,7 +151,7 @@ int ImageClassifier::identifyDigit(Mat &mat)
 	const TfLiteStatus rc = interpreter->Invoke();
 	const std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
 
-	const auto topn = GetTopN(output_tensor, 3);
+	const auto topn = GetTopN(output_tensor, 1);
 
 	//cout << "I think the digit is " << topn[0] << " or " << topn[1] << " or " << topn[2] << endl;
 	//Logger::getLogger()->info("Recognized digit is %d or %d or %d", stoi(topn[0]), stoi(topn[1]), stoi(topn[2]));
@@ -193,7 +197,7 @@ void saveImage(Mat &image, string filename)
 	compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
 	compression_params.push_back(95);
 
-	imwrite(filename, image, compression_params);
+	imwrite(string("/tmp/")+filename, image, compression_params);
 }
 
 struct contour_LR_sorter // 'less' for contours 
@@ -386,11 +390,8 @@ int ImageClassifier::processImage(Mat &image)
 
 		digit = identifyDigit(flat_image);
 		Logger::getLogger()->info("digit=%d, topn_prob=%f", digit, topn_prob);
-		if(topn_prob > 0.70)
-		{
-			logfile.close();
+		if(topn_prob * 100.0 >= m_min_accuracy)
 			return digit;
-		}
 		else
 			digit = -1;
 	}
@@ -402,7 +403,6 @@ int ImageClassifier::processImage(Mat &image)
  */
 bool ImageClassifier::takeImage(Mat& mat)
 {
-	//mat = imread("digit-8.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
 	VideoCapture cap(0);
 	if(!cap.isOpened())  // check if we succeeded
 	{
@@ -417,7 +417,7 @@ bool ImageClassifier::takeImage(Mat& mat)
 
 	saveImage(mat, "image-orig.jpg");
 
-	Logger::getLogger()->info("Captured image, type=%s   %d x %d", type2str(mat.type()).c_str(), mat.rows, mat.cols);
+	//Logger::getLogger()->info("Captured image, type=%s   %d x %d", type2str(mat.type()).c_str(), mat.rows, mat.cols);
 	
 	return true;
 }
